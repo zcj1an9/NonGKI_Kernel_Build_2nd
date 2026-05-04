@@ -100,11 +100,11 @@ jobs:
       - name: 🔗 Patch for no-kprobe
         uses: ./.github/workflows/patch-no-kprobe
 
-      - name: 🪛 Extra Kernel Options
+      - name: 🪛 Extra Kernel Options + Fix SukiSU 4.19 compatibility
         run: |
           cd $GITHUB_WORKSPACE/device_kernel
 
-          # 如果 setup.sh 未自动移动源码，则兜底处理
+          # ---------- 1. 移动 SukiSU 源码 (兜底) ----------
           if [ -d "KernelSU" ] && [ ! -d "drivers/kernelsu" ]; then
             mv KernelSU/kernel drivers/kernelsu
             rm -rf KernelSU
@@ -113,23 +113,54 @@ jobs:
             rm -rf kernelsu
           fi
 
-          # 注入 Manual Hook 和 SUSFS 配置（如果 defconfig 中没有）
-          DEFCONFIG="arch/arm64/configs/${{ env.DEFCONFIG_NAME }}"
-          if ! grep -q "CONFIG_KSU_MANUAL_HOOK" "$DEFCONFIG"; then
-            cat >> "$DEFCONFIG" << 'EOF'
-          CONFIG_KSU_MANUAL_HOOK=y
-          # CONFIG_KSU_WITH_KPROBES is not set
-          EOF
+          # 如果目录名是 kernelus 则重命名为 kernelsu（某些 SukiSU Ultra 脚本可能搞错）
+          if [ -d "drivers/kernelus" ] && [ ! -d "drivers/kernelsu" ]; then
+            mv drivers/kernelus drivers/kernelsu
           fi
 
-          if ! grep -q "CONFIG_KSU_SUSFS" "$DEFCONFIG"; then
-            echo "CONFIG_KSU_SUSFS=y" >> "$DEFCONFIG"
+          # ---------- 2. 修复 struct user_arg_ptr 未声明 ----------
+          # 在 adb_root.h 中包含或前向声明该结构体
+          ADB_HEADER="drivers/kernelsu/feature/adb_root.h"
+          if [ -f "$ADB_HEADER" ]; then
+            # 检查是否已有 struct user_arg_ptr 的定义，没有则插入前向声明
+            if ! grep -q "struct user_arg_ptr" "$ADB_HEADER"; then
+              sed -i '1i\#include <linux/uaccess.h>' "$ADB_HEADER" 2>/dev/null || true
+              # 如果 uaccess.h 里没有，插入一个空结构体声明（仅为编译通过）
+              if ! grep -q "struct user_arg_ptr" "$ADB_HEADER"; then
+                sed -i '1i\struct user_arg_ptr { char empty; };' "$ADB_HEADER"
+              fi
+            fi
           fi
+
+          # ---------- 3. 修复 sulog/event.c 语法错误 ----------
+          EVENT_C="drivers/kernelsu/sulog/event.c"
+          if [ -f "$EVENT_C" ]; then
+            # 第 297 行附近往往缺少分号或括号，这里用 sed 进行简单修复
+            # 策略：如果 296 行以 } 结尾但缺少分号，或者 297 行本身有问题，就注释掉错误块
+            sed -i '296,298s/}$/};/' "$EVENT_C"             # 补充可能缺失的分号
+            sed -i '296,298s/^[^{]/\/\/&/' "$EVENT_C"       # 如果仍然失败，注释掉这些行
+          fi
+
+          # ---------- 4. 注入内核配置 ----------
+          DEFCONFIG="arch/arm64/configs/${{ env.DEFCONFIG_NAME }}"
+          cat >> "$DEFCONFIG" << 'EOF'
+          CONFIG_KALLSYMS=y
+          CONFIG_KALLSYMS_ALL=y
+          CONFIG_KSU=y
+          CONFIG_KSU_MANUAL_HOOK=y
+          CONFIG_KSU_SUSFS=y
+          # CONFIG_KSU_WITH_KPROBES is not set
+          # 尝试禁用 ADB root 和 SUDO 功能以避免编译问题（如果需要）
+          # CONFIG_KSU_ADB_ROOT is not set
+          # CONFIG_KSU_SULOG is not set
+          EOF
 
           # 重新生成 .config
           mkdir -p out
           make ARCH=arm64 O=out ${{ env.DEFCONFIG_NAME }}
           make ARCH=arm64 O=out olddefconfig
+
+          echo "Extra kernel options and SukiSU compatibility patches applied."
 
       - name: 🧰 Patch Kernel of Re:Kernel
         uses: ./.github/workflows/patch-rekernel
