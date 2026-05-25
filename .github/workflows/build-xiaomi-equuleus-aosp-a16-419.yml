@@ -13,7 +13,7 @@ env:
   EXTRA_CMDS : "LLVM=1 LLVM_IAS=1"
 
   KERNEL_SOURCE : "https://github.com/zcj1an9/android_kernel_xiaomi_sdm845_419.git"
-  KERNEL_BRANCH : "16.2"
+  KERNEL_BRANCH : "OS3"
 
   CLANG_SOURCE : "https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/tags/android-16.0.0_r4/clang-r547379.tar.gz"
   CLANG_BRANCH : ""
