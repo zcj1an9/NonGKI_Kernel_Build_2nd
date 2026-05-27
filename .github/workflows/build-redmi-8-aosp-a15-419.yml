@@ -133,9 +133,6 @@ jobs:
 
           sed -i "s/'#define DEFINE_LSM(lsm)'/\"\\\\#define DEFINE_LSM(lsm)\"/g" security/selinux/Makefile
 
-      - name: 🔧 Patch Hide Stuff
-        uses: ./.github/workflows/patch-hide-stuff
-
       - name: 🚀 Build Process
         uses: ./.github/workflows/build-process
 
