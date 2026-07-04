@@ -15,7 +15,7 @@ env:
   KERNEL_SOURCE : "https://github.com/uzreq/android_kernel_xiaomi_sdm845_419.git"
   KERNEL_BRANCH : "perf-dipper"
 
-  CLANG_SOURCE : "https://github.com/llvm/llvm-project/releases/download/llvmorg-19.1.7/LLVM-19.1.7-Linux-X64.tar.xz"
+  CLANG_SOURCE : "https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/heads/android13-release/clang-r450784d.tar.gz"
   CLANG_BRANCH : ""
 
   GCC_GNU : false
